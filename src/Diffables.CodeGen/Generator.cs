@@ -71,10 +71,7 @@ namespace Diffables.CodeGen
                     sb.Append(GeneratePropertyCode(property, isDiffable, propertyIndex));
                     propertyIndex++;
                 }
-                sb.AppendLine();
-                sb.AppendLine();
                 sb.AppendLine(GenerateEncodeMethod(properties));
-                sb.AppendLine();
                 sb.AppendLine(GenerateDecodeMethod(properties));
                 sb.AppendLine("}");
                 if (!string.IsNullOrEmpty(namespaceName))
@@ -204,9 +201,6 @@ namespace Diffables.CodeGen
                 sb.AppendLine("        }");
                 sb.AppendLine();
             }
-            sb.AppendLine();
-            sb.AppendLine("        // Clear our dirty state after encoding.");
-            sb.AppendLine("        this.ResetDirtyPropertiesBitmask();");
             sb.AppendLine("        this.ChangeTree.Clear();");
             sb.AppendLine("    }");
             return sb.ToString();
