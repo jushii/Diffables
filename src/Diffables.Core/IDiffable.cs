@@ -3,9 +3,10 @@
     public interface IDiffable
     {
         int RefId { get; set; }
-        IDiffable? Parent { get; set; }
-        void SetDirty(uint bitmaskBitProperty);
-        void SetChildDirty(uint bitmaskBitChild);
+        ChangeTree ChangeTree { get; set; }
+        Action OnSetDirty { get; set; }
+        //void SetDirty(uint bitmaskBitProperty);
+        void SetDirty(uint bitmaskBitProperty, Operation operation);
         void EncodeV2(SerializationContext context);
         void DecodeV2(SerializationContext context);
     }

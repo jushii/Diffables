@@ -103,6 +103,8 @@ namespace Diffables.CodeGen
             string backingFieldName = $"_{propertyName.WithLowerFirstChar()}";
             StringBuilder sb = new StringBuilder();
 
+            string bitmaskBitProperty = $"BitmaskBit{propertyName}";
+
             sb.AppendLine($"    private const uint BitmaskBit{propertyName} = 1 << {index};");
             sb.AppendLine($"    private {propertyType} {backingFieldName};");
             sb.AppendLine($"    public partial {propertyType} {propertyName}");
@@ -112,15 +114,32 @@ namespace Diffables.CodeGen
             sb.AppendLine("        {");
             if (isDiffable)
             {
-                sb.AppendLine($"            if ({backingFieldName} != value)");
+                sb.AppendLine($"            if ({backingFieldName} == value) return;");
+                sb.AppendLine($"            Operation op = Operation.None;");
+                sb.AppendLine($"            if ({backingFieldName} == null)");
                 sb.AppendLine("            {");
-                sb.AppendLine($"                {backingFieldName} = value;");
-                sb.AppendLine($"                if ({backingFieldName} != null)");
-                sb.AppendLine("                {");
-                sb.AppendLine("                     // Inform the nested Diffable property who its parent is.");
-                sb.AppendLine($"                    {backingFieldName}.SetParent(this, BitmaskBit{propertyName});");
-                sb.AppendLine("                }");
-                sb.AppendLine($"                SetDirty(BitmaskBit{propertyName});");
+                sb.AppendLine($"                 op = Operation.AddByRefId;");
+                sb.AppendLine($"                 // RefCount 0 means this is the first time we add a reference to this instance.");
+                sb.AppendLine($"                 if (value.RefCount == 0) op = Operation.Add;");
+                sb.AppendLine($"                 {backingFieldName} = value;");
+                sb.AppendLine($"                 {backingFieldName}.OnSetDirty += On{propertyName}Dirty;");
+                sb.AppendLine($"                 value.RefCount++;");
+                sb.AppendLine($"                 SetDirty({bitmaskBitProperty}, op);");
+                sb.AppendLine("            }");
+                sb.AppendLine("            else");
+                sb.AppendLine("            {");
+                sb.AppendLine("                 if (value == null)");
+                sb.AppendLine("                 {");
+                sb.AppendLine($"                     op = Operation.Delete;"); // TODO: Do we need DeleteByRefId?
+                sb.AppendLine($"                     {backingFieldName}.RefCount--;");
+                sb.AppendLine($"                     {backingFieldName}.OnSetDirty -= On{propertyName}Dirty;");
+                sb.AppendLine($"                     {backingFieldName} = null;");
+                sb.AppendLine($"                     SetDirty({bitmaskBitProperty}, op);");
+                sb.AppendLine("                 }");
+                sb.AppendLine("                 else");
+                sb.AppendLine("                 {");
+                sb.AppendLine("                     // TODO: Handle replace");
+                sb.AppendLine("                 }");
                 sb.AppendLine("            }");
             }
             else
@@ -128,13 +147,14 @@ namespace Diffables.CodeGen
                 sb.AppendLine($"            if ({backingFieldName} != value)");
                 sb.AppendLine("            {");
                 sb.AppendLine($"                {backingFieldName} = value;");
-                sb.AppendLine($"                SetDirty(BitmaskBit{propertyName});");
+                //sb.AppendLine($"                SetDirty(BitmaskBit{propertyName});");
+                sb.AppendLine($"                SetDirty({bitmaskBitProperty}, Operation.Update);");
                 sb.AppendLine("            }");
             }
             sb.AppendLine("        }");
             sb.AppendLine("    }");
-            sb.AppendLine();
-
+            sb.AppendLine($"    private void On{propertyName}Dirty() {{ SetDirty(BitmaskBit{propertyName}, Operation.Update); }}");
+            sb.AppendLine("");
             return sb.ToString();
         }
 
@@ -148,59 +168,85 @@ namespace Diffables.CodeGen
             sb.AppendLine("    {");
             sb.AppendLine($"        // Write header: RefId and bitmask for dirty properties.");
             sb.AppendLine("        context.Writer.Write(this.RefId);");
-            sb.AppendLine("        context.Writer.Write(this._dirtyPropertiesBitmask);");
+            sb.AppendLine("        context.Writer.Write(this.ChangeTree.DirtyPropertiesBitmask);");
             sb.AppendLine();
             foreach (var (property, isDiffable) in properties)
             {
                 string propertyName = property.Name;
                 string propertyTypeName = property.Type.Name.ToString();
+                string bitmaskBitProperty = $"BitmaskBit{propertyName}";
                 sb.AppendLine($"        // Encode property: {propertyName}");
-                sb.AppendLine($"        if ((this._dirtyPropertiesBitmask & BitmaskBit{propertyName}) != 0)");
+                sb.AppendLine($"        if ((this.ChangeTree.DirtyPropertiesBitmask & {bitmaskBitProperty}) != 0)");
                 sb.AppendLine("        {");
                 if (isDiffable)
                 {
-                    sb.AppendLine($"            if (this.{propertyName} == null)");
+                    sb.AppendLine($"            Operation op = this.ChangeTree.Operations[{bitmaskBitProperty}];");
+                    sb.AppendLine($"            context.Writer.Write((byte)op);");
+                    sb.AppendLine($"            switch (op)");
                     sb.AppendLine("            {");
-                    sb.AppendLine($"                context.Writer.Write((byte)Operation.Delete);");
-                    sb.AppendLine("            }");
-                    sb.AppendLine("            else");
-                    sb.AppendLine("            {");
-                    sb.AppendLine($"                if (!context.Repository.TryGet(this.{propertyName}.RefId, out _))");
+                    sb.AppendLine("                 case Operation.Update:");
                     sb.AppendLine("                 {");
-                    sb.AppendLine("                     // This instance has not been encoded before.");
-                    sb.AppendLine("                     context.Writer.Write((byte)Operation.Add);");
-                    sb.AppendLine($"                     context.Repository.Add(this.{propertyName});");
-                    sb.AppendLine("                     // Recursively encode the nested property.");
                     sb.AppendLine($"                     this.{propertyName}.EncodeV2(context);");
+                    sb.AppendLine("                     break;");
                     sb.AppendLine("                 }");
-                    sb.AppendLine("                 else");
+                    sb.AppendLine("                 case Operation.Add:");
                     sb.AppendLine("                 {");
+                    sb.AppendLine($"                     this.{propertyName}.EncodeV2(context);");
+                    sb.AppendLine("                     break;");
+                    sb.AppendLine("                 }");
+                    sb.AppendLine("                 case Operation.AddByRefId:");
+                    sb.AppendLine("                 {");
+                    sb.AppendLine($"                     context.Writer.Write({propertyName}.RefId);");
+                    sb.AppendLine("                     break;");
+                    sb.AppendLine("                 }");
+                    sb.AppendLine("                 case Operation.Delete:");
+                    sb.AppendLine("                 {");
+                    sb.AppendLine($"                     context.Writer.Write({propertyName}.RefId);");
+                    sb.AppendLine("                     break;");
+                    sb.AppendLine("                 }");
+                    sb.AppendLine("            }");
+                    //sb.AppendLine($"            if (this.{propertyName} == null)");
+                    //sb.AppendLine("            {");
+                    //sb.AppendLine($"                context.Writer.Write((byte)Operation.Delete);");
+                    //sb.AppendLine("            }");
+                    //sb.AppendLine("            else");
+                    //sb.AppendLine("            {");
+                    //sb.AppendLine($"                if (!context.Repository.TryGet(this.{propertyName}.RefId, out _))");
+                    //sb.AppendLine("                 {");
+                    //sb.AppendLine("                     // This instance has not been encoded before.");
+                    //sb.AppendLine("                     context.Writer.Write((byte)Operation.Add);");
+                    //sb.AppendLine($"                     context.Repository.Add(this.{propertyName});");
+                    //sb.AppendLine("                     // Recursively encode the nested property.");
+                    //sb.AppendLine($"                     this.{propertyName}.EncodeV2(context);");
+                    //sb.AppendLine("                 }");
+                    //sb.AppendLine("                 else");
+                    //sb.AppendLine("                 {");
 
 
-                    sb.AppendLine("                     // The instance is already in the repository.");
-                    sb.AppendLine("                     // If there are pending changes, propagate an update.");
-                    sb.AppendLine($"                     if (this.{propertyName}.GetDirtyPropertiesBitmask() != 0)");
-                    sb.AppendLine("                     {");
-                    sb.AppendLine("                         context.Writer.Write((byte)Operation.Update);");
-                    sb.AppendLine($"                         this.{propertyName}.EncodeV2(context);");
-                    sb.AppendLine("                     }");
-                    sb.AppendLine("                     else");
-                    sb.AppendLine("                     {");
-                    sb.AppendLine("                         // No changes, so just reference the already-sent instance.");
-                    sb.AppendLine("                         context.Writer.Write((byte)Operation.AddByRefId);");
-                    sb.AppendLine($"                         context.Writer.Write(this.{propertyName}.RefId);");
-                    sb.AppendLine("                     }");
+                    //sb.AppendLine("                     // The instance is already in the repository.");
+                    //sb.AppendLine("                     // If there are pending changes, propagate an update.");
+                    //sb.AppendLine($"                     if (this.{propertyName}.GetDirtyPropertiesBitmask() != 0)");
+                    //sb.AppendLine("                     {");
+                    //sb.AppendLine("                         context.Writer.Write((byte)Operation.Update);");
+                    //sb.AppendLine($"                         this.{propertyName}.EncodeV2(context);");
+                    //sb.AppendLine("                     }");
+                    //sb.AppendLine("                     else");
+                    //sb.AppendLine("                     {");
+                    //sb.AppendLine("                         // No changes, so just reference the already-sent instance.");
+                    //sb.AppendLine("                         context.Writer.Write((byte)Operation.AddByRefId);");
+                    //sb.AppendLine($"                         context.Writer.Write(this.{propertyName}.RefId);");
+                    //sb.AppendLine("                     }");
 
 
                     //sb.AppendLine("                     // Encode delta.");
                     //sb.AppendLine($"                     context.Writer.Write((byte)Operation.Update);");
                     //sb.AppendLine($"                     this.{propertyName}.EncodeV2(context);");
-                    sb.AppendLine("                 }");
-                    sb.AppendLine("            }");
+                    //sb.AppendLine("                 }");
+                    //sb.AppendLine("            }");
                 }
                 else
                 {
-                    sb.AppendLine("            context.Writer.Write((byte)Operation.Update);");
+                    sb.AppendLine($"            context.Writer.Write((byte)this.ChangeTree.Operations[{bitmaskBitProperty}]);");
                     sb.AppendLine($"            context.Writer.Write(this.{propertyName});");
                 }
                 sb.AppendLine("        }");
@@ -209,6 +255,7 @@ namespace Diffables.CodeGen
             sb.AppendLine();
             sb.AppendLine("        // Clear our dirty state after encoding.");
             sb.AppendLine("        this.ResetDirtyPropertiesBitmask();");
+            sb.AppendLine("        this.ChangeTree.Clear();");
             sb.AppendLine("    }");
             return sb.ToString();
         }
