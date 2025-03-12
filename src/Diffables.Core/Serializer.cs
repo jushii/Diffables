@@ -24,7 +24,7 @@
 
             using SerializationContext context = new SerializationContext(memoryStream, _repository, isReader: false);
 
-            instance.EncodeV2(context);
+            instance.Encode(context);
 
             return memoryStream.ToArray();
         }
@@ -48,14 +48,14 @@
             int refId = context.Reader.ReadInt32();
             if (context.Repository.TryGet(refId, out var existingInstance))
             {
-                existingInstance.DecodeV2(context);
+                existingInstance.Decode(context);
             }
             else
             {
                 // This is the first time we deserialize the root level object.
                 T instance = new T { RefId = refId };
                 context.Repository.Add(instance);
-                instance.DecodeV2(context);
+                instance.Decode(context);
             }
         }
 

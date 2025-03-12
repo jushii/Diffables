@@ -14,17 +14,11 @@
             RefId = _nextRefId++;
         }
 
-        //public void SetDirty(uint propertyBitmaskBit) 
-        //{
-        //    _dirtyPropertiesBitmask |= propertyBitmaskBit;
-        //    OnSetDirty?.Invoke();
-        //}
-
         public uint GetDirtyPropertiesBitmask() => _dirtyPropertiesBitmask;
         public void ResetDirtyPropertiesBitmask() => _dirtyPropertiesBitmask = 0;
 
-        public abstract void EncodeV2(SerializationContext context);
-        public abstract void DecodeV2(SerializationContext context);
+        public abstract void Encode(SerializationContext context);
+        public abstract void Decode(SerializationContext context);
 
         public void SetDirty(uint bitmaskBitProperty, Operation operation)
         {
