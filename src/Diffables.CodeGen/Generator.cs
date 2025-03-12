@@ -190,7 +190,8 @@ namespace Diffables.CodeGen
                     sb.AppendLine("                 }");
                     sb.AppendLine("                 case Operation.Delete:");
                     sb.AppendLine("                 {");
-                    sb.AppendLine($"                     context.Writer.Write({propertyName}.RefId);");
+                    sb.AppendLine($"                     // We've already set {propertyName} to null so we don't have it's RefId,");
+                    sb.AppendLine($"                     // but at decoding phase we know what field is being decoded so we can act accordingly..");
                     sb.AppendLine("                     break;");
                     sb.AppendLine("                 }");
                     sb.AppendLine("            }");
