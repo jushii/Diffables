@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -16,7 +18,7 @@ namespace Diffables.CodeGen
                 .ForAttributeWithMetadataName(
                     "Diffables.Core.DiffableAttribute",
                     (node, cancellationToken) => node is ClassDeclarationSyntax,
-                    (context, cancellationToken) => (INamedTypeSymbol)context.TargetSymbol)
+                    (c, cancellationToken) => (INamedTypeSymbol)c.TargetSymbol)
                 .Where(symbol => symbol != null);
 
             // 2. Get all partial properties decorated with DiffableType attribute.
@@ -31,7 +33,7 @@ namespace Diffables.CodeGen
                         }
                         return false;
                     },
-                    (context, cancellationToken) => (IPropertySymbol)context.TargetSymbol)
+                    (c, cancellationToken) => (IPropertySymbol)c.TargetSymbol)
                 .Where(property => property != null);
 
             // 3. Join diffable classes with their diffable properties.
