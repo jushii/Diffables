@@ -29,7 +29,16 @@
         public void SetDirty(uint bitmaskBitProperty, Operation operation)
         {
             ChangeTree.DirtyPropertiesBitmask |= bitmaskBitProperty;
-            ChangeTree.Operations[bitmaskBitProperty] = operation;
+            if (ChangeTree.Operations.TryGetValue(bitmaskBitProperty, out Operation existingOperation) && existingOperation == Operation.Add)
+            {
+                // TODO: Not sure what's a good way to do this, but we should not overwrite the Add operation with Update
+                // if we haven't yet Added and encoded the instance. Maybe we could track all operations done to a property single using a bitmask,
+                // or overwrite the operation on case-by-case basis (since we can add/remove/replace/update etc.)
+            }
+            else
+            {
+                ChangeTree.Operations[bitmaskBitProperty] = operation;
+            }
             OnSetDirty?.Invoke();
         }
     }
