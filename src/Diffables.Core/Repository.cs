@@ -2,41 +2,42 @@
 {
     public class Repository
     {
-        private readonly Dictionary<int, (IDiffable Instance, int Count)> _objectReferenceMap = new();
+        private readonly Dictionary<int, IDiffable> _objectReferenceMap = new();
 
         public void Add(IDiffable instance)
         {
-            if (_objectReferenceMap.TryGetValue(instance.RefId, out var entry))
+            if (_objectReferenceMap.TryGetValue(instance.RefId, out _))
             {
-                _objectReferenceMap[instance.RefId] = (entry.Instance, entry.Count++);
+                throw new Exception($"Instance with RefId {instance.RefId} is already added to the object reference map.");
             }
-            else
-            {
-                _objectReferenceMap[instance.RefId] = (instance, 1);
-            }
+            _objectReferenceMap[instance.RefId] = instance;
+
+            instance.OnRefCountChanged += OnInstanceRefCountChanged;
+        }
+
+        private void OnInstanceRefCountChanged((int RefId, int RefCount) tuple)
+        {
+            if (tuple.RefCount <= 0) Remove(tuple.RefId);
         }
 
         public void Remove(int refId)
         {
-            if (_objectReferenceMap.TryGetValue(refId, out var entry))
+            if (_objectReferenceMap.TryGetValue(refId, out IDiffable instance))
             {
-                int newCount = entry.Count - 1;
-                if (newCount <= 0)
-                {
-                    _objectReferenceMap.Remove(refId);
-                }
-                else
-                {
-                    _objectReferenceMap[refId] = (entry.Instance, newCount);
-                }
+                instance.OnRefCountChanged -= OnInstanceRefCountChanged;
+                _objectReferenceMap.Remove(refId);
+            }
+            else
+            {
+                throw new Exception($"Problem trying to remove instance with RefId {refId} from object reference map.");
             }
         }
 
         public bool TryGet(int refId, out IDiffable instance)
         {
-            if (_objectReferenceMap.TryGetValue(refId, out var entry))
+            if (_objectReferenceMap.TryGetValue(refId, out IDiffable existingInstance))
             {
-                instance = entry.Instance;
+                instance = existingInstance;
                 return true;
             }
 

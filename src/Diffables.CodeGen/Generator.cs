@@ -174,7 +174,7 @@ namespace Diffables.CodeGen
                     sb.AppendLine("            {");
                     sb.AppendLine("                 case Operation.Update:");
                     sb.AppendLine("                 {");
-                    sb.AppendLine($"                     this.{propertyName}.Encode(context);");
+                    sb.AppendLine($"                    this.{propertyName}.Encode(context);");
                     sb.AppendLine("                     break;");
                     sb.AppendLine("                 }");
                     sb.AppendLine("                 case Operation.Add:");
@@ -255,8 +255,6 @@ namespace Diffables.CodeGen
                     sb.AppendLine($"                     if (context.Repository.TryGet(refId, out IDiffable existing))");
                     sb.AppendLine("                     {");
                     sb.AppendLine($"                         this.{propertyName} = ({propertyTypeName})existing;");
-                    sb.AppendLine($"                         // Increase the reference count by 1.");
-                    sb.AppendLine($"                         context.Repository.Add(existing);");
                     sb.AppendLine("                     }");
                     sb.AppendLine("                     else");
                     sb.AppendLine("                     {");
