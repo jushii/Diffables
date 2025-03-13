@@ -1,6 +1,6 @@
 ﻿namespace Diffables.Core
 {
-    public abstract class DiffableBase : IDiffable
+    public abstract class Diffable : IDiffable
     {
         public int RefId { get; set; }
         public int RefCount 
@@ -18,7 +18,7 @@
         private static int _nextRefId = 1;
         private int _refCount;
 
-        protected DiffableBase() 
+        protected Diffable() 
         { 
             RefId = _nextRefId++;
         }

@@ -6,12 +6,11 @@
 
         public void Add(IDiffable instance)
         {
-            if (_objectReferenceMap.TryGetValue(instance.RefId, out _))
+            if (_objectReferenceMap.ContainsKey(instance.RefId))
             {
-                throw new Exception($"Instance with RefId {instance.RefId} is already added to the object reference map.");
+                throw new InvalidOperationException($"Instance with RefId {instance.RefId} is already added to the repository.");
             }
             _objectReferenceMap[instance.RefId] = instance;
-
             instance.OnRefCountChanged += OnInstanceRefCountChanged;
         }
 
@@ -29,7 +28,7 @@
             }
             else
             {
-                throw new Exception($"Problem trying to remove instance with RefId {refId} from object reference map.");
+                throw new KeyNotFoundException($"No instance found with RefId {refId} in the repository.");
             }
         }
 

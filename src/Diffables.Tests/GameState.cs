@@ -9,9 +9,9 @@ namespace Diffables.Tests
         public partial int Timer { get; set; }
 
         [DiffableType]
-        public partial Entity Player{ get; set; }
+        public partial Entity Player1 { get; set; }
 
         [DiffableType]
-        public partial Entity SamePlayer { get; set; }
+        public partial Entity Player2 { get; set; }
     }
 }

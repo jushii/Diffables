@@ -1,28 +1,22 @@
 ﻿namespace Diffables.Core
 {
-    public enum Operation : byte
-    {
-        None = 0,
-        Update = 1,
-        Add = 2,
-        AddByRefId = 3,
-        Delete = 4
-    }
-
     public class Serializer
     {
-        private Repository _repository;
+        public Repository Repository => _repository;
+
+        private readonly Repository _repository;
 
         public Serializer(Repository repository)
         {
-            _repository = repository;
+            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         }
 
         public byte[] Serialize<T>(T instance) where T : IDiffable
         {
-            MemoryStream memoryStream = new MemoryStream();
+            if (instance == null) throw new ArgumentNullException(nameof(instance));
 
-            using SerializationContext context = new SerializationContext(memoryStream, _repository, isReader: false);
+            using MemoryStream memoryStream = new MemoryStream();
+            using var context = SerializationContext.CreateWriterContext(memoryStream, _repository);
 
             instance.Encode(context);
 
@@ -32,30 +26,34 @@
 
     public class Deserializer
     {
-        private Repository _repository;
+        public Repository Repository => _repository;
+
+        private readonly Repository _repository;
 
         public Deserializer(Repository repository)
         {
-            _repository = repository;
+            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         }
 
-        public void Deserialize<T>(byte[] bytes) where T : IDiffable, new()
+        public T Deserialize<T>(byte[] bytes) where T : IDiffable, new()
         {
-            MemoryStream memoryStream = new MemoryStream(bytes);
+            if (bytes == null) throw new ArgumentNullException(nameof(bytes));
 
-            using SerializationContext context = new SerializationContext(memoryStream, _repository, isReader: true);
+            using MemoryStream memoryStream = new MemoryStream(bytes);
+            using var context = SerializationContext.CreateReaderContext(memoryStream, _repository);
 
             int refId = context.Reader.ReadInt32();
             if (context.Repository.TryGet(refId, out var existingInstance))
             {
                 existingInstance.Decode(context);
+                return (T)existingInstance;
             }
             else
             {
-                // This is the first time we deserialize the root level object.
-                T instance = new T { RefId = refId };
-                context.Repository.Add(instance);
-                instance.Decode(context);
+                T newInstance = new T { RefId = refId };
+                context.Repository.Add(newInstance);
+                newInstance.Decode(context);
+                return newInstance;
             }
         }
     }

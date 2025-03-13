@@ -13,7 +13,7 @@ namespace Diffables.CodeGen
     {
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            // 1. Get all classes decorated with Diffable attribute.
+            // Get all classes decorated with Diffable attribute.
             IncrementalValuesProvider<INamedTypeSymbol> diffableClasses = context.SyntaxProvider
                 .ForAttributeWithMetadataName(
                     "Diffables.Core.DiffableAttribute",
@@ -21,7 +21,7 @@ namespace Diffables.CodeGen
                     (c, cancellationToken) => (INamedTypeSymbol)c.TargetSymbol)
                 .Where(symbol => symbol != null);
 
-            // 2. Get all partial properties decorated with DiffableType attribute.
+            // Get all partial properties decorated with DiffableType attribute.
             IncrementalValuesProvider<IPropertySymbol> diffableTypeProperties = context.SyntaxProvider
                 .ForAttributeWithMetadataName(
                     "Diffables.Core.DiffableTypeAttribute",
@@ -36,7 +36,7 @@ namespace Diffables.CodeGen
                     (c, cancellationToken) => (IPropertySymbol)c.TargetSymbol)
                 .Where(property => property != null);
 
-            // 3. Join diffable classes with their diffable properties.
+            // Join diffable classes with their diffable properties.
             IncrementalValuesProvider<(INamedTypeSymbol DiffableClass, IEnumerable<(IPropertySymbol Property, bool IsDiffable)> Props)> diffablePropertiesByClass =
                 diffableClasses.Combine(diffableTypeProperties.Collect())
                 .Select((pair, cancellationToken) =>
@@ -49,7 +49,7 @@ namespace Diffables.CodeGen
                     return (diffableClass, props);
                 });
 
-            // 4. Generate code for each diffable class.
+            // Generate code for each diffable class.
             context.RegisterSourceOutput(diffablePropertiesByClass, (spc, tuple) =>
             {
                 (INamedTypeSymbol symbol, IEnumerable<(IPropertySymbol Property, bool IsDiffable)> properties) = tuple;
@@ -65,7 +65,7 @@ namespace Diffables.CodeGen
                     sb.AppendLine($"namespace {namespaceName}");
                     sb.AppendLine("{");
                 }
-                sb.AppendLine($"public partial class {className} : DiffableBase");
+                sb.AppendLine($"public partial class {className} : Diffable");
                 sb.AppendLine("{");
                 int propertyIndex = 0;
                 foreach (var (property, isDiffable) in properties)
@@ -84,9 +84,6 @@ namespace Diffables.CodeGen
             });
         }
 
-        /// <summary>
-        /// Generates the code for a property including its backing field and accessor.
-        /// </summary>
         private static string GeneratePropertyCode(IPropertySymbol property, bool isDiffable, int index)
         {
             string propertyType = property.Type.ToDisplayString();
@@ -146,9 +143,6 @@ namespace Diffables.CodeGen
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Generates the Encode method code.
-        /// </summary>
         private static string GenerateEncodeMethod(IEnumerable<(IPropertySymbol Property, bool IsDiffable)> properties)
         {
             StringBuilder sb = new StringBuilder();
@@ -208,9 +202,6 @@ namespace Diffables.CodeGen
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Generates the Decode method code.
-        /// </summary>
         private static string GenerateDecodeMethod(IEnumerable<(IPropertySymbol Property, bool IsDiffable)> properties)
         {
             StringBuilder sb = new StringBuilder();
@@ -296,12 +287,8 @@ namespace Diffables.CodeGen
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Returns true if the type has a DiffableAttribute.
-        /// </summary>
         private static bool IsDiffableType(ITypeSymbol type) =>
             type is INamedTypeSymbol namedType &&
             namedType.GetAttributes().Any(attr => attr.AttributeClass?.Name == "DiffableAttribute");
-
     }
 }
