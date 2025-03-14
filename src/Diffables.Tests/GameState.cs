@@ -13,5 +13,8 @@ namespace Diffables.Tests
 
         [DiffableType]
         public partial Entity Player2 { get; set; }
+
+        [DiffableType]
+        public partial Entity Player3 { get; set; }
     }
 }

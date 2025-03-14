@@ -195,5 +195,166 @@ namespace Diffables.Tests
             Assert.That(updatedState.Player1.Health, Is.EqualTo(originalHealth), "Player1 Health should remain unchanged.");
             Assert.That(updatedState.Player1.Mana, Is.EqualTo(originalMana), "Player1 Mana should remain unchanged.");
         }
+
+        #region Replace tests
+
+        [Test]
+        public void ReplaceExistingInstanceWithAnotherExistingInstanceTest()
+        {
+            // Arrange: Create gameState0.
+            GameState gameState0 = CreateDefaultGameState();
+            gameState0.Player2 = gameState0.Player1;
+            gameState0.Player3 = new Entity { Id = "zapdos", Health = 200, Mana = 40 };
+
+            // Act:
+            // Encode the complete GameState.
+            byte[] bytes = _serializer.Serialize(gameState0);
+            GameState gameState1 = _deserializer.Deserialize<GameState>(bytes);
+
+            // Replace Player2 with Player3.
+            gameState0.Player2 = gameState0.Player3;
+            // Encode again.
+            bytes = _serializer.Serialize(gameState0);
+            gameState1 = _deserializer.Deserialize<GameState>(bytes);
+
+            // Assert on gameState1:
+            Assert.That(gameState1.Player2, Is.EqualTo(gameState1.Player3), "Player2 and Player3 should be equal in gameState1.");
+            Assert.That(gameState1.Player2, Is.SameAs(gameState1.Player3), "Player2 and Player3 should reference the same instance in gameState1.");
+            Assert.That(gameState1.Player1.RefCount, Is.EqualTo(1), "Player1 RefCount should be 1 in gameState1.");
+            Assert.That(gameState1.Player2.RefCount, Is.EqualTo(2), "Player2 RefCount should be 2 in gameState1.");
+
+            // Additional assertions on gameState0:
+            Assert.That(gameState0.Player2, Is.SameAs(gameState0.Player3), "gameState0: Player2 and Player3 should reference the same instance.");
+            Assert.That(gameState0.Player1.RefCount, Is.EqualTo(1), "gameState0: Player1 RefCount should be 1.");
+            Assert.That(gameState0.Player2.RefCount, Is.EqualTo(2), "gameState0: Player2 RefCount should be 2.");
+        }
+
+        [Test]
+        public void ReplaceExistingInstanceWithNewInstanceTest()
+        {
+            // Arrange: Create gameState0.
+            GameState gameState0 = CreateDefaultGameState();
+            gameState0.Player2 = gameState0.Player1;
+
+            // Act:
+            // Encode the complete GameState.
+            byte[] bytes = _serializer.Serialize(gameState0);
+            GameState gameState1 = _deserializer.Deserialize<GameState>(bytes);
+            // Replace Player2 with a new instance.
+            gameState0.Player2 = new Entity { Id = "zapdos", Health = 200, Mana = 40 };
+            // Encode again.
+            bytes = _serializer.Serialize(gameState0);
+            gameState1 = _deserializer.Deserialize<GameState>(bytes);
+
+            // Assert on gameState1:
+            Assert.That(gameState1.Player1, Is.Not.SameAs(gameState1.Player2), "Player1 and Player2 should not reference the same instance in gameState1.");
+            Assert.That(gameState1.Player1.RefCount, Is.EqualTo(1), "Player1 RefCount should be 1 in gameState1.");
+            Assert.That(gameState1.Player2.RefCount, Is.EqualTo(1), "Player2 RefCount should be 1 in gameState1.");
+            Assert.That(gameState1.Player2.Id, Is.EqualTo("zapdos"), "Player2 Id should be 'zapdos' in gameState1.");
+
+            // Additional assertions on gameState0:
+            Assert.That(gameState0.Player1, Is.Not.SameAs(gameState0.Player2), "gameState0: Player1 and Player2 should not reference the same instance.");
+            Assert.That(gameState0.Player1.RefCount, Is.EqualTo(1), "gameState0: Player1 RefCount should be 1.");
+            Assert.That(gameState0.Player2.RefCount, Is.EqualTo(1), "gameState0: Player2 RefCount should be 1.");
+            Assert.That(gameState0.Player2.Id, Is.EqualTo("zapdos"), "gameState0: Player2 Id should be 'zapdos'.");
+        }
+
+        [Test]
+        public void ReplaceExistingInstanceWithNewInstance_MultipleReplacementsTest()
+        {
+            // Arrange: Create a game state where Player1 and Player2 reference the same entity.
+            GameState gameState0 = CreateDefaultGameState();
+            gameState0.Player2 = gameState0.Player1;
+
+            // Register initial state.
+            byte[] initialBytes = _serializer.Serialize(gameState0);
+            GameState gameState1 = _deserializer.Deserialize<GameState>(initialBytes);
+
+            // Act 1: Replace Player2 with a new instance ("zapdos").
+            var newEntity1 = new Entity { Id = "zapdos", Health = 200, Mana = 40 };
+            gameState0.Player2 = newEntity1;
+            byte[] bytes = _serializer.Serialize(gameState0);
+            gameState1 = _deserializer.Deserialize<GameState>(bytes);
+
+            // Assert 1: Verify that Player2 is a new instance.
+            Assert.That(gameState1.Player1, Is.Not.SameAs(gameState1.Player2), "After first replacement, Player1 and Player2 should not be the same in gameState1.");
+            Assert.That(gameState1.Player1.RefCount, Is.EqualTo(1), "Player1's RefCount should be 1 in gameState1 after first replacement.");
+            Assert.That(gameState1.Player2.RefCount, Is.EqualTo(1), "New entity's RefCount should be 1 in gameState1 after first replacement.");
+            var firstReplacement = gameState1.Player2;
+
+            // Additional assertions on gameState0 after first replacement:
+            Assert.That(gameState0.Player2, Is.EqualTo(newEntity1), "gameState0: Player2 should equal newEntity1 after first replacement.");
+            Assert.That(gameState0.Player1.RefCount, Is.EqualTo(1), "gameState0: Player1's RefCount should be 1 after first replacement.");
+            Assert.That(gameState0.Player2.RefCount, Is.EqualTo(1), "gameState0: newEntity1's RefCount should be 1 after first replacement.");
+
+            // Act 2: Replace Player2 with another new instance ("moltres").
+            var newEntity2 = new Entity { Id = "moltres", Health = 180, Mana = 30 };
+            gameState0.Player2 = newEntity2;
+            bytes = _serializer.Serialize(gameState0);
+            gameState1 = _deserializer.Deserialize<GameState>(bytes);
+
+            // Assert 2: Verify that the second replacement is distinct.
+            Assert.That(gameState1.Player1, Is.Not.SameAs(gameState1.Player2), "After second replacement, Player1 and Player2 should not be the same in gameState1.");
+            Assert.That(gameState1.Player1.RefCount, Is.EqualTo(1), "Player1's RefCount should remain 1 in gameState1 after second replacement.");
+            Assert.That(gameState1.Player2.RefCount, Is.EqualTo(1), "Second new entity's RefCount should be 1 in gameState1 after second replacement.");
+            Assert.That(gameState1.Player2, Is.Not.SameAs(firstReplacement), "The second replacement should create a different instance than the first in gameState1.");
+
+            // Additional assertions on gameState0 after second replacement:
+            Assert.That(gameState0.Player2, Is.EqualTo(newEntity2), "gameState0: Player2 should equal newEntity2 after second replacement.");
+            Assert.That(gameState0.Player1.RefCount, Is.EqualTo(1), "gameState0: Player1's RefCount should remain 1 after second replacement.");
+            Assert.That(gameState0.Player2.RefCount, Is.EqualTo(1), "gameState0: newEntity2's RefCount should be 1 after second replacement.");
+
+            // Act 3: Replace Player2 with Player1 (an existing instance).
+            gameState0.Player2 = gameState0.Player1;
+            bytes = _serializer.Serialize(gameState0);
+            gameState1 = _deserializer.Deserialize<GameState>(bytes);
+
+            // Assert 3: Now both Player1 and Player2 reference the same instance.
+            Assert.That(gameState1.Player1, Is.SameAs(gameState1.Player2), "After third replacement, Player2 should reference the same instance as Player1 in gameState1.");
+            Assert.That(gameState1.Player1.RefCount, Is.EqualTo(2), "Player1's RefCount should be 2 in gameState1 as it is now referenced twice.");
+
+            // Additional assertions on gameState0 after third replacement:
+            Assert.That(gameState0.Player2, Is.SameAs(gameState0.Player1), "gameState0: Player2 should reference the same instance as Player1 after third replacement.");
+            Assert.That(gameState0.Player1.RefCount, Is.EqualTo(2), "gameState0: Player1's RefCount should be 2 after third replacement.");
+        }
+
+        [Test]
+        public void ReplaceMultipleInstancesWithNewInstancesTest()
+        {
+            // Arrange: Create a game state where Player1, Player2, and Player3 initially reference the same entity.
+            GameState gameState0 = CreateDefaultGameState();
+            gameState0.Player2 = gameState0.Player1;
+            gameState0.Player3 = gameState0.Player1;
+
+            // Register the initial state.
+            byte[] initialBytes = _serializer.Serialize(gameState0);
+            GameState gameState1 = _deserializer.Deserialize<GameState>(initialBytes);
+
+            // Act: Replace Player2 and Player3 with new instances.
+            var newPlayer2 = new Entity { Id = "zapdos", Health = 200, Mana = 40 };
+            var newPlayer3 = new Entity { Id = "moltres", Health = 180, Mana = 35 };
+            gameState0.Player2 = newPlayer2;
+            gameState0.Player3 = newPlayer3;
+            byte[] bytes = _serializer.Serialize(gameState0);
+            gameState1 = _deserializer.Deserialize<GameState>(bytes);
+
+            // Assert on gameState1:
+            Assert.That(gameState1.Player1.RefCount, Is.EqualTo(1), "Player1's RefCount should be 1 in gameState1 after replacements on other properties.");
+            Assert.That(gameState1.Player2.RefCount, Is.EqualTo(1), "Player2's new instance RefCount should be 1 in gameState1.");
+            Assert.That(gameState1.Player3.RefCount, Is.EqualTo(1), "Player3's new instance RefCount should be 1 in gameState1.");
+            Assert.That(gameState1.Player1, Is.Not.SameAs(gameState1.Player2), "Player1 and Player2 should be distinct in gameState1 after replacement.");
+            Assert.That(gameState1.Player1, Is.Not.SameAs(gameState1.Player3), "Player1 and Player3 should be distinct in gameState1 after replacement.");
+            Assert.That(gameState1.Player2, Is.Not.SameAs(gameState1.Player3), "Player2 and Player3 should be distinct instances in gameState1.");
+
+            // Additional assertions on gameState0:
+            Assert.That(gameState0.Player1.RefCount, Is.EqualTo(1), "gameState0: Player1's RefCount should be 1 after replacements on other properties.");
+            Assert.That(gameState0.Player2.RefCount, Is.EqualTo(1), "gameState0: Player2's new instance RefCount should be 1.");
+            Assert.That(gameState0.Player3.RefCount, Is.EqualTo(1), "gameState0: Player3's new instance RefCount should be 1.");
+            Assert.That(gameState0.Player1, Is.Not.SameAs(gameState0.Player2), "gameState0: Player1 and Player2 should be distinct after replacement.");
+            Assert.That(gameState0.Player1, Is.Not.SameAs(gameState0.Player3), "gameState0: Player1 and Player3 should be distinct after replacement.");
+            Assert.That(gameState0.Player2, Is.Not.SameAs(gameState0.Player3), "gameState0: Player2 and Player3 should be distinct instances.");
+        }
+
+        #endregion Replace tests
     }
 }

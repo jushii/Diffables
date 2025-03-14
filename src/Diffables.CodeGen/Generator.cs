@@ -116,7 +116,7 @@ namespace Diffables.CodeGen
                 sb.AppendLine("            {");
                 sb.AppendLine("                 if (value == null)");
                 sb.AppendLine("                 {");
-                sb.AppendLine($"                     op = Operation.Delete;"); // TODO: Do we need DeleteByRefId?
+                sb.AppendLine($"                     op = Operation.Delete;");
                 sb.AppendLine($"                     {backingFieldName}.RefCount--;");
                 sb.AppendLine($"                     {backingFieldName}.OnSetDirty -= On{propertyName}Dirty;");
                 sb.AppendLine($"                     {backingFieldName} = null;");
@@ -124,7 +124,16 @@ namespace Diffables.CodeGen
                 sb.AppendLine("                 }");
                 sb.AppendLine("                 else");
                 sb.AppendLine("                 {");
-                sb.AppendLine("                     // TODO: Handle replace");
+                sb.AppendLine($"                     // Remove previous reference.");
+                sb.AppendLine($"                     {backingFieldName}.RefCount--;");
+                sb.AppendLine($"                     {backingFieldName}.OnSetDirty -= On{propertyName}Dirty;");
+                sb.AppendLine($"                     // Add new reference.");
+                sb.AppendLine($"                    {backingFieldName} = value;");
+                sb.AppendLine($"                    {backingFieldName}.OnSetDirty += On{propertyName}Dirty;");
+                sb.AppendLine("                      // If the instance has never been encoded (RefCount is 0), treat as a new add.");
+                sb.AppendLine($"                    op = (value.RefCount == 0) ? Operation.Add : Operation.Replace;");
+                sb.AppendLine($"                     SetDirty({bitmaskBitProperty}, op);");
+                sb.AppendLine($"                    value.RefCount++;");
                 sb.AppendLine("                 }");
                 sb.AppendLine("            }");
             }
@@ -185,6 +194,11 @@ namespace Diffables.CodeGen
                     sb.AppendLine("                 {");
                     sb.AppendLine($"                     // We've already set {propertyName} to null so we don't have it's RefId,");
                     sb.AppendLine($"                     // but at decoding phase we know what field is being decoded so we can act accordingly..");
+                    sb.AppendLine("                     break;");
+                    sb.AppendLine("                 }");
+                    sb.AppendLine("                 case Operation.Replace:");
+                    sb.AppendLine("                 {");
+                    sb.AppendLine($"                     context.Writer.Write({propertyName}.RefId);");
                     sb.AppendLine("                     break;");
                     sb.AppendLine("                 }");
                     sb.AppendLine("            }");
@@ -250,6 +264,20 @@ namespace Diffables.CodeGen
                     sb.AppendLine("                     else");
                     sb.AppendLine("                     {");
                     sb.AppendLine("                         throw new Exception($\"Trying to AddByRefId but a Diffable with RefId {refId} not found.\");");
+                    sb.AppendLine("                     }");
+                    sb.AppendLine("                     break;");
+                    sb.AppendLine("                 }");
+                    sb.AppendLine("                 case Operation.Replace:");
+                    sb.AppendLine("                 {");
+                    sb.AppendLine("                     // Create a new instance and decode it.");
+                    sb.AppendLine($"                     int refId = context.Reader.ReadInt32();");
+                    sb.AppendLine($"                     if (context.Repository.TryGet(refId, out IDiffable existing))");
+                    sb.AppendLine("                     {");
+                    sb.AppendLine($"                         this.{propertyName} = ({propertyTypeName})existing;");
+                    sb.AppendLine("                     }");
+                    sb.AppendLine("                     else");
+                    sb.AppendLine("                     {");
+                    sb.AppendLine("                         throw new Exception();");
                     sb.AppendLine("                     }");
                     sb.AppendLine("                     break;");
                     sb.AppendLine("                 }");
