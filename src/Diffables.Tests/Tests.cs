@@ -365,5 +365,40 @@ namespace Diffables.Tests
             Assert.That(gameState0.Player1, Is.Not.SameAs(gameState0.Player3), "gameState0: Player1 and Player3 should be distinct after replacement.");
             Assert.That(gameState0.Player2, Is.Not.SameAs(gameState0.Player3), "gameState0: Player2 and Player3 should be distinct instances.");
         }
+
+        [Test]
+        public void PrimitiveTypeSerializationTest()
+        {
+            // Arrange: Create a PrimitiveTypes instance with various primitive values.
+            PrimitiveTypes primitive = new PrimitiveTypes
+            {
+                SByteProp = -100,
+                ByteProp = 200,
+                ShortProp = -30000,
+                UShortProp = 60000,
+                IntProp = -100000,
+                UIntProp = 3000000000U,
+                LongProp = -5000000000L,
+                ULongProp = 10000000000UL,
+                BoolProp = true,
+                FloatProp = 3.14f
+            };
+
+            // Act: Serialize and then deserialize the PrimitiveTypes instance.
+            byte[] bytes = _serializer.Serialize(primitive);
+            PrimitiveTypes deserialized = _deserializer.Deserialize<PrimitiveTypes>(bytes);
+
+            // Assert: Verify that all values are preserved.
+            Assert.That(deserialized.SByteProp, Is.EqualTo(primitive.SByteProp));
+            Assert.That(deserialized.ByteProp, Is.EqualTo(primitive.ByteProp));
+            Assert.That(deserialized.ShortProp, Is.EqualTo(primitive.ShortProp));
+            Assert.That(deserialized.UShortProp, Is.EqualTo(primitive.UShortProp));
+            Assert.That(deserialized.IntProp, Is.EqualTo(primitive.IntProp));
+            Assert.That(deserialized.UIntProp, Is.EqualTo(primitive.UIntProp));
+            Assert.That(deserialized.LongProp, Is.EqualTo(primitive.LongProp));
+            Assert.That(deserialized.ULongProp, Is.EqualTo(primitive.ULongProp));
+            Assert.That(deserialized.BoolProp, Is.EqualTo(primitive.BoolProp));
+            Assert.That(deserialized.FloatProp, Is.EqualTo(primitive.FloatProp));
+        }
     }
 }

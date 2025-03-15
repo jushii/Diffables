@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -289,20 +290,13 @@ namespace Diffables.CodeGen
                 }
                 else
                 {
+                    string readExpression = GetReadExpression(property);
                     sb.AppendLine($"         if ((dirtyPropertiesBitmask & BitmaskBit{propertyName}) != 0)");
                     sb.AppendLine("         {");
                     sb.AppendLine("             Operation op = (Operation)context.Reader.ReadByte();");
                     sb.AppendLine("             if (op == Operation.Update)");
                     sb.AppendLine("             {");
-                    switch (property.Type.Name.ToString())
-                    {
-                        case "Int32":
-                            sb.AppendLine($"                 this.{propertyName} = context.Reader.ReadInt32();");
-                            break;
-                        case "String":
-                            sb.AppendLine($"                 this.{propertyName} = context.Reader.ReadString();");
-                            break;
-                    }
+                    sb.AppendLine($"                 this.{propertyName} = {readExpression};");
                     sb.AppendLine("             }");
                     sb.AppendLine("             else");
                     sb.AppendLine("             {");
@@ -313,6 +307,37 @@ namespace Diffables.CodeGen
             }
             sb.AppendLine("    }");
             return sb.ToString();
+        }
+
+        private static string GetReadExpression(IPropertySymbol property)
+        {
+            switch (property.Type.SpecialType)
+            {
+                case SpecialType.System_SByte:
+                    return "context.Reader.ReadSByte()";
+                case SpecialType.System_Byte:
+                    return "context.Reader.ReadByte()";
+                case SpecialType.System_Int16:
+                    return "context.Reader.ReadInt16()";
+                case SpecialType.System_UInt16:
+                    return "context.Reader.ReadUInt16()";
+                case SpecialType.System_Int32:
+                    return "context.Reader.ReadInt32()";
+                case SpecialType.System_UInt32:
+                    return "context.Reader.ReadUInt32()";
+                case SpecialType.System_Int64:
+                    return "context.Reader.ReadInt64()";
+                case SpecialType.System_UInt64:
+                    return "context.Reader.ReadUInt64()";
+                case SpecialType.System_Boolean:
+                    return "context.Reader.ReadBoolean()";
+                case SpecialType.System_Single:
+                    return "context.Reader.ReadSingle()";
+                case SpecialType.System_String:
+                    return "context.Reader.ReadString()";
+                default:
+                    throw new Exception($"Unsupported type for property {property.Name}");
+            }
         }
 
         private static bool IsDiffableType(ITypeSymbol type) =>
